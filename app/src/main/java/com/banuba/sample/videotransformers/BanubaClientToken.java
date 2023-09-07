@@ -1,3 +1,5 @@
 package com.banuba.sample.videotransformers;
-   class BanubaClientToken   {
+
+/*package*/ class BanubaClientToken {
+   public static String CLIENT_TOKEN = <# Place your token here #>;
 }
