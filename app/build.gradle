@@ -13,7 +13,6 @@ ext {
     extEasyPermissionsVersion="3.0.0"
     extConstraintLyoutVersion="2.0.4"
     extRetrofitVersion="2.9.0"
-//    extOkHttpVersion="4.8.1"
     extRetrofit2ConverterMoshi="2.9.0"
     extOkHttpLoggingInterceptor="4.9.0"
 }
@@ -49,7 +48,8 @@ dependencies {
     implementation "androidx.constraintlayout:constraintlayout:${extConstraintLyoutVersion}"
 
     implementation "com.squareup.retrofit2:retrofit:${extRetrofitVersion}"
-    //implementation "com.squareup.okhttp3:okhttp:${extOkHttpVersion}"
     implementation "com.squareup.retrofit2:converter-moshi:${extRetrofit2ConverterMoshi}"
     implementation "com.squareup.okhttp3:logging-interceptor:${extOkHttpLoggingInterceptor}"
+
+    implementation "com.banuba.sdk:banuba_sdk:1.8.1"
 }

@@ -1,17 +1,13 @@
 package com.tokbox.sample.videotransformers;
 
 import android.Manifest;
-import android.app.Application;
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -26,6 +22,10 @@ import com.opentok.android.Subscriber;
 import com.opentok.android.SubscriberKit;
 import com.tokbox.sample.videotransformers.network.APIService;
 import com.tokbox.sample.videotransformers.network.GetSessionResponse;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.logging.HttpLoggingInterceptor.Level;
@@ -36,9 +36,6 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.moshi.MoshiConverterFactory;
-
-import java.util.ArrayList;
-import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity implements EasyPermissions.PermissionCallbacks {
@@ -93,8 +90,6 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
             }
 
             session.publish(publisher);
-
-            image = BitmapFactory.decodeResource(getResources(), R.drawable.vonage_logo);
 
             setTransformers();
         }
@@ -284,17 +279,13 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         this.finish();
     }
 
-    // Logo to be loaded
-    private Bitmap image;
-
     private BanubaTransformer banubaTransformer;
     private void setTransformers() {
-        banubaTransformer = new BanubaTransformer(image);
+        banubaTransformer = new BanubaTransformer(getApplicationContext());
+        banubaTransformer.loadEffect("effects/CubemapEverest");
         videoTransformers.clear();
-        PublisherKit.VideoTransformer backgroundBlur = publisher.new VideoTransformer("BackgroundBlur", "{\"radius\":\"High\"}");
-        PublisherKit.VideoTransformer myCustomTransformer = publisher.new VideoTransformer("myTransformer", banubaTransformer);
-        videoTransformers.add(backgroundBlur);
-        videoTransformers.add(myCustomTransformer);
+        PublisherKit.VideoTransformer transformer = publisher.new VideoTransformer("banubaTransformer", banubaTransformer);
+        videoTransformers.add(transformer);
         publisher.setVideoTransformers(videoTransformers);
     }
 }
