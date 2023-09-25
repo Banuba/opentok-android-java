@@ -5,6 +5,7 @@ import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
@@ -154,6 +155,11 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
         publisherViewContainer = findViewById(R.id.publisher_container);
         subscriberViewContainer = findViewById(R.id.subscriber_container);
+
+        findViewById(R.id.applyEffect).setOnClickListener(v -> {
+                    setTransformers();
+                }
+        );
 
         requestPermissions();
     }
