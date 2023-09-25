@@ -11,6 +11,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.banuba.sample.tokbox.R;
 import com.banuba.sample.videotransformers.BanubaTransformer;
 import com.opentok.android.BaseVideoRenderer;
 import com.opentok.android.OpentokError;
@@ -281,11 +282,13 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     private BanubaTransformer banubaTransformer;
     private void setTransformers() {
-        banubaTransformer = new BanubaTransformer(getApplicationContext());
-        banubaTransformer.loadEffect("effects/CubemapEverest");
-        videoTransformers.clear();
-        PublisherKit.VideoTransformer transformer = publisher.new VideoTransformer("banubaTransformer", banubaTransformer);
-        videoTransformers.add(transformer);
-        publisher.setVideoTransformers(videoTransformers);
+        if (banubaTransformer == null) { // Call this only once
+            banubaTransformer = new BanubaTransformer(getApplicationContext());
+            banubaTransformer.loadEffect("effects/CubemapEverest");
+            videoTransformers.clear();
+            PublisherKit.VideoTransformer transformer = publisher.new VideoTransformer("banubaTransformer", banubaTransformer);
+            videoTransformers.add(transformer);
+            publisher.setVideoTransformers(videoTransformers);
+        }
     }
 }
