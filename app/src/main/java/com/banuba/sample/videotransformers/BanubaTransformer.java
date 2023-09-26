@@ -23,6 +23,9 @@ public class BanubaTransformer implements CustomVideoTransformer, ImageProcessed
         mContext = context;
     }
 
+    /**
+     * @param path path to effect, pass empty string to unload current effect
+     */
     public void loadEffect(String path) {
         mEffectPath = path;
         if (mOep != null) {
