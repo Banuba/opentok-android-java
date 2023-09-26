@@ -46,8 +46,8 @@ public class BanubaTransformer implements CustomVideoTransformer, ImageProcessed
             System.nanoTime()
         );
         try {
-            synchronized (mSinchLock) {
-                mSinchLock.wait();
+            synchronized (mLock) {
+                mLock.wait();
             }
         } catch (InterruptedException ignored) { }
     }
@@ -83,8 +83,8 @@ public class BanubaTransformer implements CustomVideoTransformer, ImageProcessed
             srcV.limit(srcV.capacity());
         }
 
-        synchronized (mSinchLock) {
-            mSinchLock.notifyAll();
+        synchronized (mLock) {
+            mLock.notifyAll();
         }
     }
 
@@ -108,7 +108,7 @@ public class BanubaTransformer implements CustomVideoTransformer, ImageProcessed
 
     private OffscreenEffectPlayer mOep;
     private Frame mCurrentFrame;
-    private final Object mSinchLock = new Object();
+    private final Object mLock = new Object();
 
     private final Context mContext;
 
