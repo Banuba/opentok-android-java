@@ -3,6 +3,7 @@ package com.banuba.sample.videotransformers;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.util.Size;
 
 import androidx.annotation.NonNull;
@@ -32,6 +33,10 @@ public class BanubaTransformer implements CustomVideoTransformer, ImageProcessed
 
     @Override
     public void onTransform(Frame frame) {
+        if (TextUtils.isEmpty(mEffectPath)) {
+            return;
+        }
+
         createBanubaPlayerIfRequired(frame.getWidth(), frame.getHeight());
         mCurrentFrame = frame;
         mOep.processFullImageData(
