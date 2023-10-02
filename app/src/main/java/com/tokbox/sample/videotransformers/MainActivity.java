@@ -1,7 +1,6 @@
 package com.tokbox.sample.videotransformers;
 
 import android.Manifest;
-import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.util.Log;
@@ -12,53 +11,41 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.banuba.sample.tokbox.R;
-import com.banuba.sample.videotransformers.BanubaTransformer;
 import com.opentok.android.BaseVideoRenderer;
 import com.opentok.android.OpentokError;
 import com.opentok.android.Publisher;
 import com.opentok.android.PublisherKit;
 import com.opentok.android.Session;
 import com.opentok.android.Stream;
-import com.opentok.android.Subscriber;
-import com.opentok.android.SubscriberKit;
-import com.tokbox.sample.videotransformers.network.APIService;
-import com.tokbox.sample.videotransformers.network.GetSessionResponse;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import okhttp3.OkHttpClient;
-import okhttp3.logging.HttpLoggingInterceptor;
-import okhttp3.logging.HttpLoggingInterceptor.Level;
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.EasyPermissions;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.moshi.MoshiConverterFactory;
-
 
 public class MainActivity extends AppCompatActivity implements EasyPermissions.PermissionCallbacks {
-
     private static final String TAG = MainActivity.class.getSimpleName();
 
-    private static final int PERMISSIONS_REQUEST_CODE = 124;
+    private static final String EFFECT_1 = "effects/CubemapEverest";
+    private static final String EFFECT_2 = "effects/DebugFRX";
 
-    private Retrofit retrofit;
-    private APIService apiService;
+    private static final int PERMISSIONS_REQUEST_CODE = 100;
+    private static final String[] PERMISSIONS = {
+            Manifest.permission.INTERNET,
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO};
 
-    private Session session;
-    private Publisher publisher;
-    private Subscriber subscriber;
+    private Session mOtSession;
+    private Publisher mOtPublisher;
 
-    private FrameLayout publisherViewContainer;
-    private FrameLayout subscriberViewContainer;
-    private Context context;
+    private FrameLayout mPublisherViewContainer;
 
-    public ArrayList<PublisherKit.VideoTransformer> videoTransformers = new ArrayList<>();
+    private BanubaVideoTransformer mBanubaVideoTransformer;
 
-    private PublisherKit.PublisherListener publisherListener = new PublisherKit.PublisherListener() {
+    private final ArrayList<PublisherKit.VideoTransformer> mVideoTransformers = new ArrayList<>();
+
+    private final PublisherKit.PublisherListener mOtPublisherListener = new PublisherKit.PublisherListener() {
         @Override
         public void onStreamCreated(PublisherKit publisherKit, Stream stream) {
             Log.d(TAG, "onStreamCreated: Publisher Stream Created. Own stream " + stream.getStreamId());
@@ -75,24 +62,22 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         }
     };
 
-    private Session.SessionListener sessionListener = new Session.SessionListener() {
+    private final Session.SessionListener mOtSessionListener = new Session.SessionListener() {
         @Override
         public void onConnected(Session session) {
             Log.d(TAG, "onConnected: Connected to session: " + session.getSessionId());
 
-            publisher = new Publisher.Builder(MainActivity.this).build();
-            publisher.setPublisherListener(publisherListener);
-            publisher.getRenderer().setStyle(BaseVideoRenderer.STYLE_VIDEO_SCALE, BaseVideoRenderer.STYLE_VIDEO_FILL);
-            
-            publisherViewContainer.addView(publisher.getView());
+            mOtPublisher = new Publisher.Builder(MainActivity.this).build();
+            mOtPublisher.setPublisherListener(mOtPublisherListener);
+            mOtPublisher.getRenderer().setStyle(BaseVideoRenderer.STYLE_VIDEO_SCALE, BaseVideoRenderer.STYLE_VIDEO_FILL);
 
-            if (publisher.getView() instanceof GLSurfaceView) {
-                ((GLSurfaceView) publisher.getView()).setZOrderOnTop(true);
+            mPublisherViewContainer.addView(mOtPublisher.getView());
+
+            if (mOtPublisher.getView() instanceof GLSurfaceView) {
+                ((GLSurfaceView) mOtPublisher.getView()).setZOrderOnTop(true);
             }
 
-            session.publish(publisher);
-
-            setTransformers();
+            session.publish(mOtPublisher);
         }
 
         @Override
@@ -103,24 +88,11 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         @Override
         public void onStreamReceived(Session session, Stream stream) {
             Log.d(TAG, "onStreamReceived: New Stream Received " + stream.getStreamId() + " in session: " + session.getSessionId());
-
-            if (subscriber == null) {
-                subscriber = new Subscriber.Builder(MainActivity.this, stream).build();
-                subscriber.getRenderer().setStyle(BaseVideoRenderer.STYLE_VIDEO_SCALE, BaseVideoRenderer.STYLE_VIDEO_FILL);
-                subscriber.setSubscriberListener(subscriberListener);
-                session.subscribe(subscriber);
-                subscriberViewContainer.addView(subscriber.getView());
-            }
         }
 
         @Override
         public void onStreamDropped(Session session, Stream stream) {
             Log.d(TAG, "onStreamDropped: Stream Dropped: " + stream.getStreamId() + " in session: " + session.getSessionId());
-
-            if (subscriber != null) {
-                subscriber = null;
-                subscriberViewContainer.removeAllViews();
-            }
         }
 
         @Override
@@ -129,52 +101,65 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         }
     };
 
-    SubscriberKit.SubscriberListener subscriberListener = new SubscriberKit.SubscriberListener() {
-        @Override
-        public void onConnected(SubscriberKit subscriberKit) {
-            Log.d(TAG, "onConnected: Subscriber connected. Stream: " + subscriberKit.getStream().getStreamId());
-        }
-
-        @Override
-        public void onDisconnected(SubscriberKit subscriberKit) {
-            Log.d(TAG, "onDisconnected: Subscriber disconnected. Stream: " + subscriberKit.getStream().getStreamId());
-        }
-
-        @Override
-        public void onError(SubscriberKit subscriberKit, OpentokError opentokError) {
-            finishWithMessage("SubscriberKit onError: " + opentokError.getMessage());
-        }
-    };
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
-        context = getApplicationContext();
         setContentView(R.layout.activity_main);
 
-        publisherViewContainer = findViewById(R.id.publisher_container);
-        subscriberViewContainer = findViewById(R.id.subscriber_container);
+        mPublisherViewContainer = findViewById(R.id.publisher_container);
 
-        requestPermissions();
+        findViewById(R.id.applyEffect1).setOnClickListener(v -> createAndApplyEffect(EFFECT_1));
+        findViewById(R.id.applyEffect2).setOnClickListener(v -> createAndApplyEffect(EFFECT_2));
+
+        findViewById(R.id.noEffect).setOnClickListener(v -> {
+            if (mBanubaVideoTransformer != null) {
+                mBanubaVideoTransformer.discardEffect();
+            }
+            mBanubaVideoTransformer = null;
+
+            applyVideoTransformation();
+        });
+    }
+
+    private void createAndApplyEffect(final String effectName) {
+        if (mBanubaVideoTransformer == null) {
+            mBanubaVideoTransformer = new BanubaVideoTransformer(getApplicationContext(),
+                    true, Config.BANUBA_TOKEN);
+        }
+
+        applyVideoTransformation();
+
+        mBanubaVideoTransformer.applyEffect(effectName);
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-
-        if (session != null) {
-            session.onPause();
-        }
+    protected void onStart() {
+        super.onStart();
+        requestPermissions();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
 
-        if (session != null) {
-            session.onResume();
+        if (mOtSession != null) {
+            mOtSession.onResume();
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        if (mOtSession != null) {
+            mOtSession.onPause();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        disconnect();
     }
 
     @Override
@@ -195,83 +180,45 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     @AfterPermissionGranted(PERMISSIONS_REQUEST_CODE)
     private void requestPermissions() {
-        String[] perms = {Manifest.permission.INTERNET, Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO};
-
-        if (EasyPermissions.hasPermissions(this, perms)) {
-
-            if (ServerConfig.hasChatServerUrl()) {
-                // Custom server URL exists - retrieve session config
-                if(!ServerConfig.isValid()) {
-                    finishWithMessage("Invalid chat server url: " + ServerConfig.CHAT_SERVER_URL);
-                    return;
-                }
-
-                initRetrofit();
-                getSession();
-            } else {
-                // Use hardcoded session config
-                if(!OpenTokConfig.isValid()) {
-                    finishWithMessage("Invalid OpenTokConfig. " + OpenTokConfig.getDescription());
-                    return;
-                }
-
-                initializeSession(OpenTokConfig.API_KEY, OpenTokConfig.SESSION_ID, OpenTokConfig.TOKEN);
+        if (EasyPermissions.hasPermissions(this, PERMISSIONS)) {
+            if (!Config.isValid()) {
+                finishWithMessage("Invalid OpenTokConfig. " + Config.getDescription());
+                return;
             }
+
+            initializeOpentok();
         } else {
-            EasyPermissions.requestPermissions(this, getString(R.string.rationale_video_app), PERMISSIONS_REQUEST_CODE, perms);
+            EasyPermissions.requestPermissions(this, getString(R.string.rationale_video_app), PERMISSIONS_REQUEST_CODE, PERMISSIONS);
         }
     }
 
-    /* Make a request for session data */
-    private void getSession() {
-        Log.i(TAG, "getSession");
+    private void initializeOpentok() {
+        if (!Config.isValid()) {
+            finishWithMessage("Please specify OpenTok config values");
+            return;
+        }
 
-        Call<GetSessionResponse> call = apiService.getSession();
-
-        call.enqueue(new Callback<GetSessionResponse>() {
-            @Override
-            public void onResponse(Call<GetSessionResponse> call, Response<GetSessionResponse> response) {
-                GetSessionResponse body = response.body();
-                initializeSession(body.apiKey, body.sessionId, body.token);
-            }
-
-            @Override
-            public void onFailure(Call<GetSessionResponse> call, Throwable t) {
-                throw new RuntimeException(t.getMessage());
-            }
-        });
+        mOtSession = new Session.Builder(this,
+                Config.OPENTOK_API_KEY,
+                Config.OPENTOK_SESSION_ID).build();
+        mOtSession.setSessionListener(mOtSessionListener);
+        mOtSession.connect(Config.OPENTOK_TOKEN);
     }
 
-    private void initializeSession(String apiKey, String sessionId, String token) {
-        Log.i(TAG, "apiKey: " + apiKey);
-        Log.i(TAG, "sessionId: " + sessionId);
-        Log.i(TAG, "token: " + token);
+    private void disconnect() {
+        Log.d(TAG, "Disconnect");
 
-        /*
-        The context used depends on the specific use case, but usually, it is desired for the session to
-        live outside of the Activity e.g: live between activities. For a production applications,
-        it's convenient to use Application context instead of Activity context.
-         */
-        session = new Session.Builder(this, apiKey, sessionId).build();
-        session.setSessionListener(sessionListener);
-        session.connect(token);
-    }
+        if (mPublisherViewContainer != null && mPublisherViewContainer.getChildCount() > 0) {
+            mPublisherViewContainer.removeAllViews();
+        }
 
-    private void initRetrofit() {
-        HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-        logging.setLevel(Level.BODY);
+        if (mOtSession != null) {
+            mOtSession.unpublish(mOtPublisher);
+            mOtSession.disconnect();
+        }
 
-        OkHttpClient client = new OkHttpClient.Builder()
-                .addInterceptor(logging)
-                .build();
-
-        retrofit = new Retrofit.Builder()
-                .baseUrl(ServerConfig.CHAT_SERVER_URL)
-                .addConverterFactory(MoshiConverterFactory.create())
-                .client(client)
-                .build();
-
-        apiService = retrofit.create(APIService.class);
+        mOtSession = null;
+        mOtPublisher = null;
     }
 
     private void finishWithMessage(String message) {
@@ -280,15 +227,19 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         this.finish();
     }
 
-    private BanubaTransformer banubaTransformer;
-    private void setTransformers() {
-        if (banubaTransformer == null) { // Call this only once
-            banubaTransformer = new BanubaTransformer(getApplicationContext());
-            banubaTransformer.loadEffect("effects/CubemapEverest");
-            videoTransformers.clear();
-            PublisherKit.VideoTransformer transformer = publisher.new VideoTransformer("banubaTransformer", banubaTransformer);
-            videoTransformers.add(transformer);
-            publisher.setVideoTransformers(videoTransformers);
+    private void applyVideoTransformation() {
+        if (mOtPublisher == null) {
+            return;
         }
+
+        mVideoTransformers.clear();
+
+        if (mBanubaVideoTransformer != null) {
+            mVideoTransformers.add(
+                    mOtPublisher.new VideoTransformer(
+                            "banubaTransformer", mBanubaVideoTransformer)
+            );
+        }
+        mOtPublisher.setVideoTransformers(mVideoTransformers);
     }
 }

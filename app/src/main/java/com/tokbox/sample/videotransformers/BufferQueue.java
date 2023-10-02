@@ -1,4 +1,4 @@
-package com.banuba.sample.videotransformers;
+package com.tokbox.sample.videotransformers;
 
 import androidx.annotation.NonNull;
 

@@ -47,9 +47,5 @@ dependencies {
     implementation "pub.devrel:easypermissions:${extEasyPermissionsVersion}"
     implementation "androidx.constraintlayout:constraintlayout:${extConstraintLyoutVersion}"
 
-    implementation "com.squareup.retrofit2:retrofit:${extRetrofitVersion}"
-    implementation "com.squareup.retrofit2:converter-moshi:${extRetrofit2ConverterMoshi}"
-    implementation "com.squareup.okhttp3:logging-interceptor:${extOkHttpLoggingInterceptor}"
-
     implementation "com.banuba.sdk:banuba_sdk:1.8.1"
 }
