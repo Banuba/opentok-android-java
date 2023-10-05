@@ -1,125 +1,95 @@
 package com.tokbox.sample.videotransformers;
 
-import android.content.Context;
-import android.os.Handler;
-import android.os.Looper;
-import android.util.Size;
-
-import androidx.annotation.NonNull;
-
-import com.banuba.sdk.offscreen.ImageProcessResult;
-import com.banuba.sdk.offscreen.ImageProcessedListener;
-import com.banuba.sdk.offscreen.OffscreenEffectPlayer;
-import com.banuba.sdk.offscreen.OffscreenEffectPlayerConfig;
-import com.banuba.sdk.types.FullImageData;
+import com.banuba.sdk.frame.FramePixelBuffer;
+import com.banuba.sdk.frame.FramePixelBufferFormat;
+import com.banuba.sdk.input.StreamInput;
+import com.banuba.sdk.output.FrameOutput;
+import com.banuba.sdk.player.IDirectBufferAllocator;
+import com.banuba.sdk.player.Player;
 import com.opentok.android.BaseVideoRenderer.Frame;
 
 import java.nio.ByteBuffer;
+import java.util.LinkedList;
+import java.util.Queue;
 
 import android.text.TextUtils;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import com.opentok.android.PublisherKit;
 
 public class BanubaVideoTransformer implements PublisherKit.CustomVideoTransformer,
-        ImageProcessedListener {
+        FrameOutput.IFramePixelBufferProvider {
 
     private static final String TAG = "BanubaVideoTransformer";
 
-    // Delay to skip 5 frames
-    private static final int WAIT_DELAY = (1000 / 30) * 5;
+    private Player mPlayer;
+    private FrameOutput mOutput;
+    private StreamInput mInput;
+    private final BuffersQueue mBuffersQueue = new BuffersQueue();
 
-    // Optimal resolution for streaming
-    private static final Size HIGH_RESOLUTION = new Size(720, 1280);
-    private static final Size MEDIUM_RESOLUTION = new Size(480, 854);
-
-    private OffscreenEffectPlayer mOep;
     private Frame mCurrentFrame;
-    private final Object mLock = new Object();
-
-    private final Context mContext;
-    private final String mBanubaToken;
 
     private String mEffectPath = "";
-    private final Size mResolution;
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
-
-    public BanubaVideoTransformer(
-            @NonNull final Context context,
-            final boolean highResolution,
-            @NonNull final String banubaToken
-    ) {
-        mContext = context;
-        mBanubaToken = banubaToken;
-
-        if (highResolution) {
-            mResolution = HIGH_RESOLUTION;
-        } else {
-            mResolution = MEDIUM_RESOLUTION;
-        }
+    public BanubaVideoTransformer() {
     }
-
 
     public void applyEffect(String path) {
         loadEffectInternal(path);
-
     }
 
     public void discardEffect() {
         loadEffectInternal("");
+        preparePlayer();
     }
 
     private void loadEffectInternal(String path) {
         mEffectPath = path;
-        if (mOep != null) {
-            mOep.loadEffect(path);
+        if (mPlayer != null) {
+            mPlayer.loadAsync(path);
         }
     }
 
     @Override
     public void onTransform(Frame frame) {
-        prepareEffectPlayer();
+        preparePlayer();
 
-        if (mOep == null) {
+        final boolean hasEffect = !TextUtils.isEmpty(mEffectPath);
+        if (mPlayer == null || !hasEffect) {
             Log.w(TAG, "onTransform: not prepared!");
             return;
         }
 
-        mCurrentFrame = frame;
-        mOep.processFullImageData(
-                new FullImageData(
-                        new Size(frame.getWidth(), frame.getHeight()),
-                        frame.getYplane(), frame.getUplane(), frame.getVplane(),
-                        frame.getYstride(), frame.getUvStride(), frame.getUvStride(),
-                        1, 1, 1,
-                        new FullImageData.Orientation()
-                ),
-                null,
-                System.nanoTime()
+        mInput.push(
+            new FramePixelBuffer(
+                frame.getBuffer(),
+                new int[] {0, frame.getYplaneSize(), frame.getYplaneSize() + frame.getUVplaneSize()},
+                new int[] {frame.getYstride(), frame.getUvStride(), frame.getUvStride()},
+                new int[] {1, 1, 1},
+                frame.getWidth(),
+                frame.getHeight(),
+                FramePixelBufferFormat.I420_BT709_FULL),
+            System.nanoTime()
         );
-
-        try {
-            synchronized (mLock) {
-                mLock.wait(WAIT_DELAY);
-            }
-        } catch (InterruptedException ignored) {
-        }
+        mCurrentFrame = frame;
+        mPlayer.render();
     }
 
     @Override
-    public void onImageProcessed(@NonNull ImageProcessResult imageProcessResult) {
+    public void onFrame(FramePixelBuffer framePixelBuffer) {
         ByteBuffer dstY = mCurrentFrame.getYplane();
-        ByteBuffer srcY = imageProcessResult.getPlaneBuffer(0);
+        ByteBuffer srcY = framePixelBuffer.getPlane(0);
         srcY.limit(dstY.remaining());
         dstY.put(srcY);
 
         ByteBuffer dstU = mCurrentFrame.getUplane();
-        ByteBuffer srcU = imageProcessResult.getPlaneBuffer(1);
+        ByteBuffer srcU = framePixelBuffer.getPlane(1);
         final int uStride = mCurrentFrame.getUvStride();
 
         ByteBuffer dstV = mCurrentFrame.getVplane();
-        ByteBuffer srcV = imageProcessResult.getPlaneBuffer(2);
+        ByteBuffer srcV = framePixelBuffer.getPlane(2);
         final int vStride = mCurrentFrame.getUvStride();
 
         final int lineSize = mCurrentFrame.getWidth() / 2;
@@ -136,36 +106,56 @@ public class BanubaVideoTransformer implements PublisherKit.CustomVideoTransform
             srcU.limit(srcU.capacity());
             srcV.limit(srcV.capacity());
         }
+        mBuffersQueue.retainBuffer(framePixelBuffer.getBuffer());
+    }
 
-        synchronized (mLock) {
-            mLock.notifyAll();
+    private void preparePlayer() {
+        final boolean hasEffect = !TextUtils.isEmpty(mEffectPath);
+
+        if (mPlayer == null && hasEffect) {
+            Log.d(TAG, "preparePlayer: create and apply");
+            mInput = new StreamInput();
+            mOutput = new FrameOutput(this, mBuffersQueue);
+            mOutput.setFormat(FramePixelBufferFormat.I420_BT709_FULL);
+            mPlayer = new Player();
+            mPlayer.setRenderMode(Player.RenderMode.MANUAL);
+            mPlayer.use(mInput, mOutput);
+            mPlayer.loadAsync(mEffectPath);
+            mPlayer.play();
+            return;
+        }
+
+        if (mPlayer != null && !hasEffect) {
+            Log.d(TAG, "preparePlayer: destroy");
+            mPlayer.close();
+            mPlayer = null;
+            mOutput.close();
+            mOutput = null;
+            mInput = null;
         }
     }
 
-    private void prepareEffectPlayer() {
-        final boolean hasEffect = !TextUtils.isEmpty(mEffectPath);
+    //
+    public static class BuffersQueue implements IDirectBufferAllocator {
+        private final Queue<ByteBuffer> mQueue = new LinkedList<>();
 
-        if (mOep == null && hasEffect) {
-            Log.d(TAG, "prepareEffectPlayer: create and apply");
-            mOep = new OffscreenEffectPlayer(
-                    mContext,
-                    OffscreenEffectPlayerConfig.newBuilder(mResolution, new BuffersQueue()
-                    ).build(),
-                    mBanubaToken
-            );
-            mOep.loadEffect(mEffectPath);
-            mOep.setImageProcessListener(this, handler);
-            mOep.playbackPlay();
-            return;
+        public BuffersQueue() {
         }
 
-        if (mOep != null && !hasEffect) {
-            Log.d(TAG, "prepareEffectPlayer: destroy");
-            mOep.playbackPause();
-            mOep.playbackStop();
-            mOep = null;
-            return;
+        @NonNull
+        public synchronized ByteBuffer allocateBuffer(int capacity) {
+            final ByteBuffer buffer = mQueue.poll();
+            if (buffer != null && buffer.capacity() == capacity) {
+                buffer.rewind();
+                return buffer;
+            }
+            return ByteBuffer.allocateDirect(capacity);
+        }
+
+        public synchronized void retainBuffer(@NonNull ByteBuffer buffer) {
+            if (mQueue.size() < 4) {
+                mQueue.add(buffer);
+            }
         }
     }
 }
-
