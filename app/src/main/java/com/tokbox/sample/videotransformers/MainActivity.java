@@ -123,8 +123,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     private void createAndApplyEffect(final String effectName) {
         if (mBanubaVideoTransformer == null) {
-            mBanubaVideoTransformer = new BanubaVideoTransformer(getApplicationContext(),
-                    true, Config.BANUBA_TOKEN);
+            mBanubaVideoTransformer = new BanubaVideoTransformer();
         }
 
         applyVideoTransformation();
