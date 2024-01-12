@@ -47,5 +47,5 @@ dependencies {
     implementation "pub.devrel:easypermissions:${extEasyPermissionsVersion}"
     implementation "androidx.constraintlayout:constraintlayout:${extConstraintLyoutVersion}"
 
-    implementation "com.banuba.sdk:banuba_sdk:1.8.1"
+    implementation "com.banuba.sdk:banuba_sdk:1.10.0"
 }

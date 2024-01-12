@@ -4,6 +4,7 @@ import com.banuba.sdk.frame.FramePixelBuffer;
 import com.banuba.sdk.frame.FramePixelBufferFormat;
 import com.banuba.sdk.input.StreamInput;
 import com.banuba.sdk.output.FrameOutput;
+import com.banuba.sdk.output.IOutput;
 import com.banuba.sdk.player.IDirectBufferAllocator;
 import com.banuba.sdk.player.Player;
 import com.opentok.android.BaseVideoRenderer.Frame;
@@ -78,7 +79,7 @@ public class BanubaVideoTransformer implements PublisherKit.CustomVideoTransform
     }
 
     @Override
-    public void onFrame(FramePixelBuffer framePixelBuffer) {
+    public void onFrame(IOutput output, FramePixelBuffer framePixelBuffer) {
         ByteBuffer dstY = mCurrentFrame.getYplane();
         ByteBuffer srcY = framePixelBuffer.getPlane(0);
         srcY.limit(dstY.remaining());
