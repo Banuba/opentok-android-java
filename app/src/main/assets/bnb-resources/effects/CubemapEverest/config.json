@@ -93,10 +93,6 @@
                 "file_name": "images/ibl_diff.ktx",
                 "type": "cubemap"
             },
-            "ibl_spec.ktx": {
-                "file_name": "images/ibl_spec.ktx",
-                "type": "cubemap"
-            },
             "null_image.png": {
                 "file_name": "images/null_image.png",
                 "type": "texture"
@@ -216,7 +212,7 @@
                         "name": "tex_ibl_diff"
                     },
                     {
-                        "image": "ibl_spec.ktx",
+                        "image": "env.ktx",
                         "name": "tex_ibl_spec"
                     },
                     {
@@ -371,10 +367,6 @@
             }
         },
         "media": {
-            "Cubemap_Everest_L_Channel.ogg": {
-                "file_name": "audios/Cubemap_Everest_L_Channel.ogg",
-                "type": "audio"
-            },
             "frx": {
                 "file_name": "videos/snow.mp4",
                 "looped": false,
@@ -728,6 +720,10 @@
                 ]
             },
             {
+                "layer": "internal_face_morph__",
+                "render_target": "EffectRT0"
+            },
+            {
                 "layer": "cut",
                 "render_target": "EffectRT0",
                 "sub_geometries": [
@@ -749,10 +745,6 @@
                 ]
             },
             {
-                "layer": "internal_face_morph__",
-                "render_target": "EffectRT0"
-            },
-            {
                 "layer": "finalColorFilter",
                 "render_target": "finalColorFilterRT"
             }
@@ -762,10 +754,13 @@
         "ComposerRT": [
             "ComposerRT_color"
         ],
-        "EffectRT0": [
-            "EffectRT0_color",
-            "EffectRT0_depth"
-        ],
+        "EffectRT0": {
+            "attachments": [
+                "EffectRT0_color",
+                "EffectRT0_depth"
+            ],
+            "samples_count": 4
+        },
         "finalColorFilterRT": [
             "finalColorFilterRT_color"
         ]
@@ -774,5 +769,7 @@
     "script": {
         "entry_point": "config.js",
         "type": "legacy"
-    }
+    },
+    "support360": true,
+    "type": "mask"
 }

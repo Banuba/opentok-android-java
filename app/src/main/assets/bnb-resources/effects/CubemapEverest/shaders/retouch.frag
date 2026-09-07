@@ -85,7 +85,7 @@ vec4 getLuminance4(mat4 color) {
 
 float getLuminance(vec4 color) {
     const vec4 rgb2y = vec4(0.299, 0.587, 0.114, 0.0);
-    return max(dot(color, rgb2y), 0.00001);
+    return dot(color, rgb2y);
 }
 
 vec4 getWeight(float intensity, vec4 nextIntensity) {

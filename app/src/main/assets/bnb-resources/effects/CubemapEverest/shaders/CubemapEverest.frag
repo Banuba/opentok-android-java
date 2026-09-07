@@ -51,6 +51,16 @@ float glfx_shadow_factor()
 }
 #endif
 
+void bnb_roughness_aa(vec3 N, inout float roughness)
+{
+    const float spec_aa_strength = 0.5;
+    vec3 dFdxN = dFdx(N);
+    vec3 dFdyN = dFdy(N);
+    float curv2 = max(dot(dFdxN, dFdxN), dot(dFdyN, dFdyN));
+    float max_rough = clamp(1. - 0.0909 + 0.0909 * log2(spec_aa_strength * curv2), 0., 1.);
+    roughness = max(roughness, max_rough);
+}
+
 // gamma to linear
 vec3 g2l( vec3 g )
 {
@@ -192,14 +202,15 @@ void main()
 #ifdef GLFX_2SIDED
     N *= gl_FrontFacing ? 1. : -1.;
 #endif
-
+    bnb_roughness_aa(N, roughness);
     vec3 V = normalize( -var_v );
     float cN_V = max( 0., dot( N, V ) );
-    vec3 R = reflect( -V, N );
 
     vec3 F0 = mix( vec3(0.04), base, metallic );
 
 #ifdef GLFX_IBL
+    vec3 R = reflect( -V, N );
+
     vec3 F = fresnel_schlick_roughness( cN_V, F0, roughness );
     vec3 kD = ( 1. - F )*( 1. - metallic );   
     
